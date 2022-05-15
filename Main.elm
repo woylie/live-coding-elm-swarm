@@ -1,20 +1,21 @@
 module Main exposing (..)
 
+import Browser
 import Html exposing (..)
 import Random
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
-import Time exposing (Time, every, millisecond)
+import Time exposing (Posix, every)
 
 
 fieldWidth : Float
 fieldWidth =
-    500
+    640
 
 
 fieldHeight : Float
 fieldHeight =
-    500
+    480
 
 
 minDistance : Float
@@ -29,7 +30,7 @@ maxDistance =
 
 numBirds : Int
 numBirds =
-    50
+    80
 
 
 type alias Bird =
@@ -47,7 +48,7 @@ type alias Model =
 
 type Msg
     = InitBirds (List Bird)
-    | Move Time
+    | Move Posix
     | NoOp
 
 
@@ -69,10 +70,11 @@ normalize dx dy =
         magnitude =
             sqrt <| dx ^ 2 + dy ^ 2
     in
-        if magnitude == 0 then
-            ( 0, 0 )
-        else
-            ( dx / magnitude, dy / magnitude )
+    if magnitude == 0 then
+        ( 0, 0 )
+
+    else
+        ( dx / magnitude, dy / magnitude )
 
 
 floatsToBird : Float -> Float -> Float -> Float -> Float -> Bird
@@ -81,22 +83,22 @@ floatsToBird x y dx dy speed =
         ( newDx, newDy ) =
             normalize dx dy
     in
-        { x = x
-        , y = y
-        , dx = newDx
-        , dy = newDy
-        , speed = speed
-        }
+    { x = x
+    , y = y
+    , dx = newDx
+    , dy = newDy
+    , speed = speed
+    }
 
 
-init : ( Model, Cmd Msg )
-init =
+init : () -> ( Model, Cmd Msg )
+init () =
     ( [], Random.generate InitBirds generateBirds )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    every millisecond Move
+    every 1 Move
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -122,16 +124,20 @@ moveBird birds bird =
                 |> List.head
                 |> Maybe.withDefault ( bird, 0 )
     in
-        if closestDistance < minDistance then
-            moveAway bird closestBird |> continue
-        else if closestDistance > maxDistance then
-            moveTowards bird closestBird |> continue
-        else if bird.x <= 10 || bird.x >= fieldWidth - 10 then
-            bounceX bird |> continue
-        else if bird.y <= 10 || bird.y >= fieldHeight - 10 then
-            bounceY bird |> continue
-        else
-            moveAlong bird closestBird |> continue
+    if closestDistance < minDistance then
+        moveAway bird closestBird |> continue
+
+    else if closestDistance > maxDistance then
+        moveTowards bird closestBird |> continue
+
+    else if bird.x <= 10 || bird.x >= fieldWidth - 10 then
+        bounceX bird |> continue
+
+    else if bird.y <= 10 || bird.y >= fieldHeight - 10 then
+        bounceY bird |> continue
+
+    else
+        moveAlong bird closestBird |> continue
 
 
 continue : Bird -> Bird
@@ -143,10 +149,10 @@ continue bird =
         newY =
             bird.y + (bird.dy * bird.speed)
     in
-        { bird
-            | x = clamp 10 (fieldWidth - 10) newX
-            , y = clamp 10 (fieldHeight - 10) newY
-        }
+    { bird
+        | x = clamp 10 (fieldWidth - 10) newX
+        , y = clamp 10 (fieldHeight - 10) newY
+    }
 
 
 bounceX : Bird -> Bird
@@ -162,10 +168,10 @@ bounceY bird =
 distance : Bird -> Bird -> ( Bird, Float )
 distance bird1 bird2 =
     let
-        distance =
+        calculatedDistance =
             sqrt <| (bird1.x - bird2.x) ^ 2 + (bird1.y - bird2.y) ^ 2
     in
-        ( bird2, distance )
+    ( bird2, calculatedDistance )
 
 
 moveAway : Bird -> Bird -> Bird
@@ -174,7 +180,7 @@ moveAway bird1 bird2 =
         ( newDx, newDy ) =
             normalize (bird1.x - bird2.x) (bird1.y - bird2.y)
     in
-        { bird1 | dx = newDx, dy = newDy }
+    { bird1 | dx = newDx, dy = newDy }
 
 
 moveTowards : Bird -> Bird -> Bird
@@ -183,7 +189,7 @@ moveTowards bird1 bird2 =
         ( newDx, newDy ) =
             normalize (bird2.x - bird1.x) (bird2.y - bird1.y)
     in
-        { bird1 | dx = newDx, dy = newDy }
+    { bird1 | dx = newDx, dy = newDy }
 
 
 moveAlong : Bird -> Bird -> Bird
@@ -191,18 +197,28 @@ moveAlong bird1 bird2 =
     { bird1 | dx = bird2.dx, dy = bird2.dy, speed = bird2.speed }
 
 
+view : Model -> Svg Msg
 view model =
-    svg [ width <| toString fieldWidth, height <| toString fieldHeight ]
+    svg
+        [ width <| String.fromFloat fieldWidth
+        , height <| String.fromFloat fieldHeight
+        ]
         (List.map renderBird model)
 
 
 renderBird : Bird -> Svg Msg
 renderBird bird =
-    circle [ cx <| toString bird.x, cy <| toString bird.y, r "5" ] []
+    circle
+        [ cx <| String.fromFloat bird.x
+        , cy <| String.fromFloat bird.y
+        , r "5"
+        ]
+        []
 
 
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , subscriptions = subscriptions
         , update = update
